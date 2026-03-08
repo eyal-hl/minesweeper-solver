@@ -8,26 +8,11 @@
 </head>
 <body>
   <header>
-    <h1>💣 Minesweeper Solver</h1>
+    <h1>Minesweeper Solver</h1>
     <p class="subtitle">Upload a screenshot to get mine probability overlays</p>
   </header>
 
   <main>
-    <section id="api-key-section" class="card">
-      <label for="api-key">
-        <span class="label-text">Claude API Key</span>
-        <button type="button" id="toggle-key" aria-label="Show/hide API key" class="icon-btn">👁</button>
-      </label>
-      <input
-        type="password"
-        id="api-key"
-        placeholder="sk-ant-..."
-        autocomplete="off"
-        spellcheck="false"
-      >
-      <p class="hint">Stored only in your browser. Sent directly to api.anthropic.com — never to any other server.</p>
-    </section>
-
     <section id="upload-section" class="card">
       <div
         id="drop-zone"
@@ -59,16 +44,17 @@
       <div class="canvas-wrapper">
         <canvas id="result-canvas"></canvas>
       </div>
-      <button id="download-btn" class="btn-primary">⬇ Download Result</button>
-      <button id="reset-btn" class="btn-secondary">↩ Analyze Another</button>
+      <button id="download-btn" class="btn-primary">Download Result</button>
+      <button id="reset-btn" class="btn-secondary">Analyze Another</button>
     </section>
   </main>
 
   <footer>
-    <p>Powered by <a href="https://www.anthropic.com" target="_blank" rel="noopener">Claude</a> vision AI · Frontend only · <a href="https://github.com" target="_blank" rel="noopener">GitHub Pages</a></p>
+    <p>100% client-side analysis · No data leaves your browser · <a href="https://github.com/eyal-hl/minesweeper-solver" target="_blank" rel="noopener">GitHub</a></p>
   </footer>
 
-  <script src="js/analyzer.js"></script>
+  <script src="js/local-analyzer.js"></script>
+  <script src="js/cell-classifier.js"></script>
   <script src="js/solver.js"></script>
   <script src="js/renderer.js"></script>
   <script src="js/app.js"></script>

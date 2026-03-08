@@ -1,15 +1,14 @@
 /**
  * app.js — Main entry point and pipeline orchestrator
+ *
+ * Uses local pixel analysis (no API calls) to detect and solve minesweeper boards.
  */
 
 'use strict';
 
-const API_KEY_STORAGE_KEY = 'minesweeper_solver_api_key';
 const MAX_FILE_SIZE_MB = 20;
 
 // ─── DOM references ──────────────────────────────────────────────────────────
-const apiKeyInput   = document.getElementById('api-key');
-const toggleKeyBtn  = document.getElementById('toggle-key');
 const dropZone      = document.getElementById('drop-zone');
 const fileInput     = document.getElementById('file-input');
 const statusDiv     = document.getElementById('status');
@@ -21,28 +20,6 @@ const resultCanvas  = document.getElementById('result-canvas');
 const downloadBtn   = document.getElementById('download-btn');
 const resetBtn      = document.getElementById('reset-btn');
 const uploadSection = document.getElementById('upload-section');
-
-// ─── API key persistence ──────────────────────────────────────────────────────
-
-function initApiKeyStorage() {
-  const saved = localStorage.getItem(API_KEY_STORAGE_KEY);
-  if (saved) apiKeyInput.value = saved;
-
-  apiKeyInput.addEventListener('input', () => {
-    const val = apiKeyInput.value.trim();
-    if (val) {
-      localStorage.setItem(API_KEY_STORAGE_KEY, val);
-    } else {
-      localStorage.removeItem(API_KEY_STORAGE_KEY);
-    }
-  });
-
-  toggleKeyBtn.addEventListener('click', () => {
-    const isPassword = apiKeyInput.type === 'password';
-    apiKeyInput.type = isPassword ? 'text' : 'password';
-    toggleKeyBtn.textContent = isPassword ? '🙈' : '👁';
-  });
-}
 
 // ─── Error display ────────────────────────────────────────────────────────────
 
@@ -71,28 +48,6 @@ function hideStatus() {
 // ─── File handling ────────────────────────────────────────────────────────────
 
 /**
- * Converts a File to a base64 string and media type.
- * @param {File} file
- * @returns {Promise<{base64: string, mediaType: string}>}
- */
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result;
-      // dataUrl = "data:<mediaType>;base64,<data>"
-      const commaIdx = dataUrl.indexOf(',');
-      const meta = dataUrl.slice(5, commaIdx); // strip "data:"
-      const mediaType = meta.replace(';base64', '');
-      const base64 = dataUrl.slice(commaIdx + 1);
-      resolve({ base64, mediaType });
-    };
-    reader.onerror = () => reject(new Error('Failed to read file'));
-    reader.readAsDataURL(file);
-  });
-}
-
-/**
  * @param {File} file
  * @returns {Promise<HTMLImageElement>}
  */
@@ -110,33 +65,6 @@ function loadImage(file) {
     };
     img.src = url;
   });
-}
-
-/**
- * Returns a friendly error message from an AnalyzerError or generic Error.
- * @param {Error} err
- * @returns {string}
- */
-function friendlyError(err) {
-  if (err.name === 'AnalyzerError') {
-    switch (err.code) {
-      case 'auth':
-        return '🔑 Invalid API key. Please check your Claude API key and try again.';
-      case 'rate_limit':
-        return '⏱ Rate limit hit. Please wait a moment and try again.';
-      case 'overloaded':
-        return '🔄 Claude API is temporarily overloaded. Please try again in a few seconds.';
-      case 'no_board':
-        return '🔍 No minesweeper board detected in this image. Make sure the screenshot shows the game grid clearly.';
-      case 'invalid_response':
-        return '⚠️ Claude returned an unexpected response. Try again, or try a different screenshot.';
-      case 'network':
-        return '🌐 Network error: ' + err.message;
-      default:
-        return err.message;
-    }
-  }
-  return err.message || 'An unexpected error occurred.';
 }
 
 // ─── Result summary ───────────────────────────────────────────────────────────
@@ -171,36 +99,40 @@ function buildSummary(probMap) {
 
 /**
  * @param {File} file
- * @param {string} apiKey
  */
-async function processImage(file, apiKey) {
+async function processImage(file) {
   clearError();
   resultSection.hidden = true;
-  showStatus('Reading image…');
+  showStatus('Loading image…');
 
-  let base64, mediaType, image;
-
+  let image;
   try {
-    [{ base64, mediaType }, image] = await Promise.all([
-      fileToBase64(file),
-      loadImage(file),
-    ]);
+    image = await loadImage(file);
   } catch (err) {
     showError('Could not read the image file: ' + err.message);
     return;
   }
 
-  showStatus('Sending to Claude for board analysis…');
+  showStatus('Detecting grid and reading cells…');
+
+  // Let the status message render before heavy computation
+  await new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 50)));
 
   let analysisResult;
   try {
-    analysisResult = await analyzeBoard(base64, mediaType, apiKey);
+    analysisResult = window.LocalAnalyzer.analyzeLocal(image);
   } catch (err) {
-    showError(friendlyError(err));
+    showError('Board detection error: ' + err.message);
+    return;
+  }
+
+  if (!analysisResult.grid.cells.length) {
+    showError('Could not detect a minesweeper board in this image. Make sure the screenshot shows the game grid clearly.');
     return;
   }
 
   showStatus('Solving constraints…');
+  await new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 10)));
 
   let probMap;
   try {
@@ -242,16 +174,7 @@ function handleFileSelected(file) {
     return;
   }
 
-  const apiKey = apiKeyInput.value.trim();
-  if (!apiKey) {
-    apiKeyInput.classList.add('error');
-    apiKeyInput.focus();
-    showError('Please enter your Claude API key first.');
-    return;
-  }
-  apiKeyInput.classList.remove('error');
-
-  processImage(file, apiKey);
+  processImage(file);
 }
 
 // ─── Download ─────────────────────────────────────────────────────────────────
@@ -271,12 +194,8 @@ function downloadResult() {
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
 function init() {
-  initApiKeyStorage();
-
   // Click on drop zone triggers hidden file input
   dropZone.addEventListener('click', (e) => {
-    // The file input is absolutely positioned over the drop zone and handles its own clicks
-    // But we need to handle keyboard activation
     if (e.target === dropZone || e.target.classList.contains('drop-text') ||
         e.target.classList.contains('drop-subtext') || e.target.classList.contains('drop-icon')) {
       fileInput.click();
@@ -324,14 +243,6 @@ function init() {
     clearError();
     hideStatus();
     uploadSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  });
-
-  // Clear error when user types in API key
-  apiKeyInput.addEventListener('input', () => {
-    if (apiKeyInput.classList.contains('error') && apiKeyInput.value.trim()) {
-      apiKeyInput.classList.remove('error');
-      clearError();
-    }
   });
 }
 
