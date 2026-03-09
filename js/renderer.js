@@ -158,6 +158,8 @@ function drawCellOverlay(ctx, bounds, result) {
  * @param {number} canvasWidth
  * @param {number} canvasHeight
  */
+const APP_VERSION = 'v5';
+
 function drawLegend(ctx, canvasWidth, canvasHeight) {
   const items = [
     { color: 'rgba(34,197,94,0.85)',  label: 'Safe (0%)' },
@@ -199,6 +201,13 @@ function drawLegend(ctx, canvasWidth, canvasHeight) {
     ctx.textAlign = 'left';
     ctx.fillText(item.label, lx + swatchSize + 6, itemY);
   });
+
+  // Version stamp at the bottom of the legend
+  ctx.font = `${Math.max(8, fontSize * 0.75)}px monospace`;
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText(APP_VERSION, lx + legendWidth + padding / 2, ly + legendHeight + padding / 2 - 2);
 }
 
 /**
