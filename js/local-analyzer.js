@@ -123,9 +123,22 @@ function findGridLines(profile, period) {
     }
   }
 
+  // Only include a line if the gradient at that position is significant.
+  // Lines extrapolated past the board edge land on flat areas with no gradient,
+  // so they get filtered out here instead of generating phantom cells.
+  const gradMean = grad.reduce((a, b) => a + b, 0) / grad.length;
+  const gradThreshold = Math.max(gradMean * 0.8, 1);
+
   const lines = [];
   for (let pos = bestOffset; pos < profile.length; pos += period) {
-    lines.push(Math.round(pos));
+    let localGrad = 0;
+    for (let d = -3; d <= 3; d++) {
+      const idx = pos + d;
+      if (idx >= 0 && idx < grad.length) localGrad = Math.max(localGrad, grad[idx]);
+    }
+    if (localGrad >= gradThreshold) {
+      lines.push(Math.round(pos));
+    }
   }
 
   return { origin: bestOffset, lines };
