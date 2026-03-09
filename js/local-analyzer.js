@@ -142,6 +142,21 @@ function findGridLines(profile, period) {
     }
   }
 
+  // Trim trailing phantom lines. A real cell [L, L+period] must have a boundary
+  // (gradient) on its RIGHT side too. The game frame adds a line for its left edge
+  // but the phantom "cell" inside the frame has no right boundary — just flat gray.
+  while (lines.length > 0) {
+    const L = lines[lines.length - 1];
+    const rightPos = L + period;
+    if (rightPos >= profile.length) { lines.pop(); continue; }
+    let rightGrad = 0;
+    for (let d = -3; d <= 3; d++) {
+      const idx = rightPos + d;
+      if (idx >= 0 && idx < grad.length) rightGrad = Math.max(rightGrad, grad[idx]);
+    }
+    if (rightGrad < gradThreshold) { lines.pop(); } else { break; }
+  }
+
   return { origin: bestOffset, lines };
 }
 

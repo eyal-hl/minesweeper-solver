@@ -152,7 +152,7 @@ function drawCellOverlay(ctx, bounds, result) {
   ctx.shadowBlur = 0;
 }
 
-const APP_VERSION = 'v8';
+const APP_VERSION = 'v9';
 
 /**
  * Draws a small version stamp on the canvas.
