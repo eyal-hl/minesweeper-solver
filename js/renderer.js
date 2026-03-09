@@ -152,62 +152,24 @@ function drawCellOverlay(ctx, bounds, result) {
   ctx.shadowBlur = 0;
 }
 
+const APP_VERSION = 'v6';
+
 /**
- * Draws the legend in the bottom-right corner of the canvas.
+ * Draws a small version stamp on the canvas.
  * @param {CanvasRenderingContext2D} ctx
  * @param {number} canvasWidth
  * @param {number} canvasHeight
  */
-const APP_VERSION = 'v5';
-
-function drawLegend(ctx, canvasWidth, canvasHeight) {
-  const items = [
-    { color: 'rgba(34,197,94,0.85)',  label: 'Safe (0%)' },
-    { color: 'rgba(251,191,36,0.85)', label: '~50%' },
-    { color: 'rgba(239,68,68,0.85)',  label: 'Mine (100%)' },
-    { color: 'rgba(255,255,255,0.25)', label: '? = no info' },
-  ];
-
-  const fontSize = Math.max(10, Math.min(canvasWidth * 0.028, 16));
-  const swatchSize = fontSize * 1.1;
-  const lineHeight = swatchSize + 5;
-  const padding = 10;
-  const legendWidth = fontSize * 8.5;
-  const legendHeight = items.length * lineHeight + padding;
-
-  const lx = canvasWidth - legendWidth - padding;
-  const ly = canvasHeight - legendHeight - padding;
-
-  // Background
-  ctx.fillStyle = 'rgba(0,0,0,0.65)';
-  roundRect(ctx, lx - padding / 2, ly - padding / 2, legendWidth + padding, legendHeight + padding / 2, 8);
-  ctx.fill();
-
-  ctx.font = `${fontSize}px sans-serif`;
-  ctx.textBaseline = 'middle';
-
-  items.forEach((item, i) => {
-    const itemY = ly + i * lineHeight + swatchSize / 2;
-
-    // Color swatch
-    ctx.fillStyle = item.color;
-    ctx.fillRect(lx, itemY - swatchSize / 2, swatchSize, swatchSize);
-    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-    ctx.lineWidth = 0.5;
-    ctx.strokeRect(lx, itemY - swatchSize / 2, swatchSize, swatchSize);
-
-    // Label
-    ctx.fillStyle = '#ffffff';
-    ctx.textAlign = 'left';
-    ctx.fillText(item.label, lx + swatchSize + 6, itemY);
-  });
-
-  // Version stamp at the bottom of the legend
-  ctx.font = `${Math.max(8, fontSize * 0.75)}px monospace`;
-  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+function drawVersionStamp(ctx, canvasWidth, canvasHeight) {
+  const fontSize = Math.max(9, Math.min(canvasWidth * 0.022, 13));
+  ctx.font = `${fontSize}px monospace`;
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
   ctx.textAlign = 'right';
   ctx.textBaseline = 'bottom';
-  ctx.fillText(APP_VERSION, lx + legendWidth + padding / 2, ly + legendHeight + padding / 2 - 2);
+  ctx.shadowColor = 'rgba(0,0,0,0.8)';
+  ctx.shadowBlur = 3;
+  ctx.fillText(APP_VERSION, canvasWidth - 6, canvasHeight - 4);
+  ctx.shadowBlur = 0;
 }
 
 /**
@@ -305,6 +267,6 @@ function renderResult(canvas, image, analysisResult, probMap) {
     }
   }
 
-  // Draw legend
-  drawLegend(ctx, imgWidth, imgHeight);
+  // Version stamp
+  drawVersionStamp(ctx, imgWidth, imgHeight);
 }
