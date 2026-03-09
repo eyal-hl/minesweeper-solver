@@ -280,18 +280,19 @@ function solve(analysisResult) {
     } else if (mineSet.has(key)) {
       result.set(key, { probability: 1, certain: true });
     } else if (constrainedKeys.has(key)) {
-      // Find the smallest constraint containing this cell for tightest estimate
-      let bestConstraint = null;
+      // Use the constraint with the HIGHEST mines/cells density for this cell.
+      // Highest density gives the most conservative (worst-case) probability and
+      // correctly detects cases where one constraint fully determines the cell
+      // (e.g. {A,B,mines=2} → 100%) even when other larger constraints exist.
+      let bestProb = -1;
       for (const c of constraints) {
         if (c.cells.has(key)) {
-          if (bestConstraint === null || c.cells.size < bestConstraint.cells.size) {
-            bestConstraint = c;
-          }
+          const p = c.cells.size > 0 ? c.mines / c.cells.size : 0;
+          if (p > bestProb) bestProb = p;
         }
       }
-      if (bestConstraint) {
-        const prob = bestConstraint.mines / bestConstraint.cells.size;
-        result.set(key, { probability: Math.min(1, Math.max(0, prob)), certain: false });
+      if (bestProb >= 0) {
+        result.set(key, { probability: Math.min(1, Math.max(0, bestProb)), certain: false });
       } else {
         result.set(key, null);
       }

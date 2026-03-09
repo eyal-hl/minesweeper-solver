@@ -124,10 +124,11 @@ function findGridLines(profile, period) {
   }
 
   // Only include a line if the gradient at that position is significant.
-  // Lines extrapolated past the board edge land on flat areas with no gradient,
-  // so they get filtered out here instead of generating phantom cells.
+  // Lines extrapolated past the board edge land on flat/frame areas with weaker
+  // gradients, so they get filtered out here instead of generating phantom cells.
+  // Use 1.2x the mean gradient as threshold (stronger than the average edge).
   const gradMean = grad.reduce((a, b) => a + b, 0) / grad.length;
-  const gradThreshold = Math.max(gradMean * 0.8, 1);
+  const gradThreshold = Math.max(gradMean * 1.2, 2);
 
   const lines = [];
   for (let pos = bestOffset; pos < profile.length; pos += period) {
@@ -197,7 +198,7 @@ function detectGrid(ctx, imgWidth, imgHeight) {
 function trimGridLines(profile, lines, period) {
   if (lines.length < 2) return { startLine: 0, endLine: profile.length };
 
-  // Compute average brightness in each cell (between consecutive grid lines)
+  // Compute average brightness in each cell slot (between consecutive grid lines)
   const cellBrightness = [];
   for (let i = 0; i < lines.length - 1; i++) {
     const from = lines[i];
@@ -210,33 +211,42 @@ function trimGridLines(profile, lines, period) {
     cellBrightness.push(count > 0 ? sum / count : 0);
   }
 
-  // Find the variance of brightness - board cells should be relatively consistent
   if (cellBrightness.length === 0) return { startLine: 0, endLine: profile.length };
 
-  const mean = cellBrightness.reduce((a, b) => a + b, 0) / cellBrightness.length;
+  // Use the median brightness as the reference for "typical game cell".
+  // Median is more robust than mean when there are outlier cells (header, frame).
+  const sorted = [...cellBrightness].sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length / 2)];
 
-  // Find contiguous run of cells with brightness within 2 std devs of mean
-  let startIdx = 0;
-  let endIdx = cellBrightness.length - 1;
+  // A cell is "valid" if its brightness is within 40% of the median.
+  // The game header (LCD display) is much darker than game cells, so it fails.
+  // Cells within the game board should all be close to the same gray.
+  const tolerance = median * 0.40;
+  const valid = cellBrightness.map(b => Math.abs(b - median) < tolerance);
 
-  // Trim from start
-  for (let i = 0; i < cellBrightness.length; i++) {
-    if (Math.abs(cellBrightness[i] - mean) < mean * 0.5) {
-      startIdx = i;
-      break;
+  // Find the LONGEST contiguous run of valid cells.
+  // This identifies the actual game board region, naturally excluding the header
+  // row(s) at the top and any phantom frame cells at the edges.
+  let bestStart = 0, bestLen = 0, curStart = -1, curLen = 0;
+  for (let i = 0; i < valid.length; i++) {
+    if (valid[i]) {
+      if (curStart < 0) curStart = i;
+      curLen++;
+      if (curLen > bestLen) { bestLen = curLen; bestStart = curStart; }
+    } else {
+      curStart = -1;
+      curLen = 0;
     }
   }
-  // Trim from end
-  for (let i = cellBrightness.length - 1; i >= 0; i--) {
-    if (Math.abs(cellBrightness[i] - mean) < mean * 0.5) {
-      endIdx = i;
-      break;
-    }
+
+  if (bestLen === 0) {
+    // Fallback: return full range
+    return { startLine: lines[0], endLine: lines[lines.length - 1] + period };
   }
 
   return {
-    startLine: lines[startIdx],
-    endLine: lines[Math.min(endIdx + 1, lines.length - 1)] + period,
+    startLine: lines[bestStart],
+    endLine: lines[Math.min(bestStart + bestLen, lines.length - 1)] + period,
   };
 }
 
