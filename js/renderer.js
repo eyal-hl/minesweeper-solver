@@ -202,6 +202,58 @@ function drawLegend(ctx, canvasWidth, canvasHeight) {
 }
 
 /**
+ * Draws a debug outline on a classified (non-unrevealed) cell so the user can
+ * see what the analyzer detected and whether it was correct.
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {{x:number,y:number,width:number,height:number}} bounds
+ * @param {{ type: string, value: number|null }} cell
+ */
+function drawClassifiedCellDebug(ctx, bounds, cell) {
+  const { x, y, width: w, height: h } = bounds;
+  const inset = Math.max(1, Math.round(Math.min(w, h) * 0.06));
+
+  // Color and label per cell type
+  let strokeColor, bgColor, label;
+  if (cell.type === 'number') {
+    strokeColor = 'rgba(96,165,250,0.9)';  // blue
+    bgColor     = 'rgba(96,165,250,0.10)';
+    label       = String(cell.value);
+  } else if (cell.type === 'flag') {
+    strokeColor = 'rgba(249,115,22,0.9)';  // orange
+    bgColor     = 'rgba(249,115,22,0.10)';
+    label       = 'F';
+  } else if (cell.type === 'empty') {
+    strokeColor = 'rgba(163,230,53,0.7)';  // lime
+    bgColor     = 'rgba(163,230,53,0.06)';
+    label       = null;
+  } else {
+    return; // unrevealed — handled separately
+  }
+
+  // Background tint
+  ctx.fillStyle = bgColor;
+  ctx.fillRect(x + inset, y + inset, w - inset * 2, h - inset * 2);
+
+  // Border
+  ctx.strokeStyle = strokeColor;
+  ctx.lineWidth = Math.max(1, Math.min(w, h) * 0.07);
+  ctx.strokeRect(x + inset, y + inset, w - inset * 2, h - inset * 2);
+
+  // Small label in top-left corner for numbers / flags
+  if (label) {
+    const fontSize = Math.max(7, Math.min(w * 0.30, h * 0.30, 14));
+    ctx.font = `bold ${fontSize}px sans-serif`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.shadowColor = 'rgba(0,0,0,0.9)';
+    ctx.shadowBlur = 3;
+    ctx.fillStyle = strokeColor;
+    ctx.fillText(label, x + inset + 2, y + inset + 1);
+    ctx.shadowBlur = 0;
+  }
+}
+
+/**
  * Main render function. Draws image onto canvas then overlays probability info.
  *
  * @param {HTMLCanvasElement} canvas
@@ -224,24 +276,24 @@ function renderResult(canvas, image, analysisResult, probMap) {
 
   const { grid, gridBounds } = analysisResult;
 
-  // Draw overlays only on unrevealed cells
   for (const cell of grid.cells) {
-    if (cell.type !== 'unrevealed') continue;
-
-    const key = `${cell.row},${cell.col}`;
-    const solverResult = probMap.has(key) ? probMap.get(key) : null;
-
     const rawBounds = getCellPixelBounds(cell.row, cell.col, gridBounds);
-
-    // Clamp to image bounds
     const clampedX = Math.max(0, Math.min(rawBounds.x, imgWidth - 1));
     const clampedY = Math.max(0, Math.min(rawBounds.y, imgHeight - 1));
     const clampedW = Math.min(rawBounds.width, imgWidth - clampedX);
     const clampedH = Math.min(rawBounds.height, imgHeight - clampedY);
-
     if (clampedW <= 0 || clampedH <= 0) continue;
 
-    drawCellOverlay(ctx, { x: clampedX, y: clampedY, width: clampedW, height: clampedH }, solverResult);
+    const bounds = { x: clampedX, y: clampedY, width: clampedW, height: clampedH };
+
+    if (cell.type === 'unrevealed') {
+      const key = `${cell.row},${cell.col}`;
+      const solverResult = probMap.has(key) ? probMap.get(key) : null;
+      drawCellOverlay(ctx, bounds, solverResult);
+    } else {
+      // Draw debug outline showing what was detected
+      drawClassifiedCellDebug(ctx, bounds, cell);
+    }
   }
 
   // Draw legend

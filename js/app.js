@@ -11,6 +11,7 @@ const MAX_FILE_SIZE_MB = 20;
 // ─── DOM references ──────────────────────────────────────────────────────────
 const dropZone      = document.getElementById('drop-zone');
 const fileInput     = document.getElementById('file-input');
+const pasteBtn      = document.getElementById('paste-btn');
 const statusDiv     = document.getElementById('status');
 const statusMsg     = document.getElementById('status-message');
 const errorBanner   = document.getElementById('error-banner');
@@ -48,7 +49,7 @@ function hideStatus() {
 // ─── File handling ────────────────────────────────────────────────────────────
 
 /**
- * @param {File} file
+ * @param {File|Blob} file
  * @returns {Promise<HTMLImageElement>}
  */
 function loadImage(file) {
@@ -65,6 +66,38 @@ function loadImage(file) {
     };
     img.src = url;
   });
+}
+
+/**
+ * Reads an image from the clipboard and processes it.
+ */
+async function handlePaste() {
+  clearError();
+
+  if (!navigator.clipboard?.read) {
+    // Fallback: listen for a paste event instead
+    showError('Clipboard API not available in this browser. Try Ctrl+V / Cmd+V while the page is focused, or use the file picker.');
+    return;
+  }
+
+  let items;
+  try {
+    items = await navigator.clipboard.read();
+  } catch (err) {
+    showError('Could not read clipboard. Make sure you allow clipboard access when prompted, then try again.');
+    return;
+  }
+
+  for (const item of items) {
+    const imageType = item.types.find(t => t.startsWith('image/'));
+    if (imageType) {
+      const blob = await item.getType(imageType);
+      processImageBlob(blob);
+      return;
+    }
+  }
+
+  showError('No image found on clipboard. Copy a screenshot first (e.g. with Ctrl+Shift+S or Print Screen), then paste.');
 }
 
 // ─── Result summary ───────────────────────────────────────────────────────────
@@ -98,9 +131,9 @@ function buildSummary(probMap) {
 // ─── Core pipeline ────────────────────────────────────────────────────────────
 
 /**
- * @param {File} file
+ * @param {File|Blob} file
  */
-async function processImage(file) {
+async function processImageBlob(file) {
   clearError();
   resultSection.hidden = true;
   showStatus('Loading image…');
@@ -174,7 +207,7 @@ function handleFileSelected(file) {
     return;
   }
 
-  processImage(file);
+  processImageBlob(file);
 }
 
 // ─── Download ─────────────────────────────────────────────────────────────────
@@ -232,6 +265,25 @@ function init() {
     if (file) {
       handleFileSelected(file);
       fileInput.value = ''; // Reset so same file can be re-selected
+    }
+  });
+
+  // Paste button
+  pasteBtn.addEventListener('click', handlePaste);
+
+  // Global Ctrl+V / Cmd+V paste anywhere on the page
+  document.addEventListener('paste', (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        const blob = item.getAsFile();
+        if (blob) {
+          e.preventDefault();
+          processImageBlob(blob);
+          return;
+        }
+      }
     }
   });
 

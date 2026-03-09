@@ -144,6 +144,119 @@ footer a {
   height: 100%;
 }
 
+/* ===== Paste Button ===== */
+.btn-paste {
+  margin-top: 12px;
+  width: 100%;
+  background: var(--bg);
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.btn-paste:hover {
+  border-color: var(--success);
+  color: var(--success);
+  background: rgba(0, 212, 170, 0.06);
+}
+
+.paste-icon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+/* ===== Detection Legend ===== */
+.legend-card {
+  padding: 0;
+}
+
+.legend-card summary {
+  padding: 12px 16px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+}
+
+.legend-card summary::-webkit-details-marker { display: none; }
+
+.legend-card summary::before {
+  content: '▶';
+  font-size: 0.65rem;
+  transition: transform 0.15s;
+  color: var(--text-muted);
+}
+
+.legend-card[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.legend-card summary:hover {
+  color: var(--text);
+}
+
+.legend-grid {
+  padding: 0 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.legend-section h3 {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+
+.legend-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-size: 0.82rem;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.legend-row em {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-style: normal;
+  margin-top: 2px;
+}
+
+.swatch {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  margin-top: 1px;
+  border: 1px solid rgba(255,255,255,0.15);
+}
+
+.legend-note {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
 /* ===== Status / Spinner ===== */
 #status {
   display: flex;

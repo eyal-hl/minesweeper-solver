@@ -30,6 +30,9 @@
           aria-hidden="true"
         >
       </div>
+      <button type="button" id="paste-btn" class="btn-paste">
+        <span class="paste-icon">📋</span> Paste from clipboard
+      </button>
     </section>
 
     <div id="status" hidden aria-live="polite">
@@ -44,6 +47,29 @@
       <div class="canvas-wrapper">
         <canvas id="result-canvas"></canvas>
       </div>
+      <details id="detection-legend" class="card legend-card">
+        <summary>Detection legend — what each overlay means</summary>
+        <div class="legend-grid">
+          <div class="legend-section">
+            <h3>Unrevealed cells (probability overlays)</h3>
+            <div class="legend-row"><span class="swatch" style="background:rgba(34,197,94,0.8);border:2px solid #22c55e"></span><span><strong>Green / ✓</strong> — certain safe (0% mine)</span></div>
+            <div class="legend-row"><span class="swatch" style="background:rgba(251,191,36,0.8)"></span><span><strong>Amber / %</strong> — uncertain, shows probability</span></div>
+            <div class="legend-row"><span class="swatch" style="background:rgba(239,68,68,0.8);border:2px solid #ef4444"></span><span><strong>Red / ✕</strong> — certain mine (100%)</span></div>
+            <div class="legend-row"><span class="swatch" style="background:rgba(255,255,255,0.2);border:1px solid #888"></span><span><strong>?</strong> — no constraint info (isolated cell)</span></div>
+          </div>
+          <div class="legend-section">
+            <h3>Detected cell types (debug outlines)</h3>
+            <div class="legend-row"><span class="swatch" style="border:2px solid #60a5fa;background:rgba(96,165,250,0.15)"></span><span><strong>Blue outline</strong> — number cell<br><em>Detected by: classic minesweeper → color match (blue=1, green=2, red=3…); modern style → Otsu threshold + shape heuristics (bounding box ratio, crossing count)</em></span></div>
+            <div class="legend-row"><span class="swatch" style="border:2px solid #f97316;background:rgba(249,115,22,0.15)"></span><span><strong>Orange outline</strong> — flag<br><em>Detected by: red pixel density &gt; 3% of cell area</em></span></div>
+            <div class="legend-row"><span class="swatch" style="border:2px solid #a3e635;background:rgba(163,230,53,0.1)"></span><span><strong>Lime outline</strong> — empty revealed cell<br><em>Detected by: low brightness variance (StdDev &lt; 12) with no visible glyph</em></span></div>
+            <div class="legend-row"><span class="swatch" style="border:1px dashed #6b7280;background:transparent"></span><span><strong>No outline</strong> — unrevealed<br><em>Detected by: high pixel variance (3D bevel highlight/shadow pattern) or fallback</em></span></div>
+          </div>
+          <div class="legend-section">
+            <h3>Grid detection method</h3>
+            <p class="legend-note">The grid is found by computing the average brightness of every column (and row) of pixels, then autocorrelating the brightness profile to find the dominant repeating period — the cell size. Grid lines appear as periodic minima (darker than cell interiors). No external libraries used.</p>
+          </div>
+        </div>
+      </details>
       <button id="download-btn" class="btn-primary">Download Result</button>
       <button id="reset-btn" class="btn-secondary">Analyze Another</button>
     </section>
