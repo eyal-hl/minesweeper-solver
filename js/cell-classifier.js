@@ -331,6 +331,44 @@ function recognizeDigitFromBinary(binary, width, height) {
 // ─── Main Cell Classifier ────────────────────────────────────────────────────
 
 /**
+ * Detects whether a cell has a 3D raised-bevel appearance (= unrevealed).
+ *
+ * Classic minesweeper unrevealed cells have a raised button effect:
+ *   top-left edges: bright highlight ~255
+ *   bottom-right edges: dark shadow ~128
+ *   center face: medium gray ~192
+ *
+ * Empty revealed cells are flat/recessed — the highlight/shadow pattern is
+ * absent or reversed, so TL ≈ BR brightness.
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {number} x
+ * @param {number} y
+ * @param {number} w
+ * @param {number} h
+ * @returns {boolean}
+ */
+function hasBevel(ctx, x, y, w, h) {
+  const bevelPx = Math.max(2, Math.floor(Math.min(w, h) * 0.12));
+  const sampleSize = Math.max(2, Math.floor(Math.min(w, h) * 0.18));
+
+  // Sample near top-left corner (the highlight side)
+  const tlData = getCellImageData(ctx, x + bevelPx, y + bevelPx, sampleSize, sampleSize);
+  // Sample near bottom-right corner (the shadow side)
+  const brData = getCellImageData(ctx,
+    x + w - bevelPx - sampleSize, y + h - bevelPx - sampleSize,
+    sampleSize, sampleSize);
+
+  if (!tlData || !brData) return false;
+
+  const tlB = avgBrightness(tlData);
+  const brB = avgBrightness(brData);
+
+  // Raised bevel: top-left significantly brighter than bottom-right
+  return tlB > brB + 20;
+}
+
+/**
  * Determines the adaptive brightness threshold for number detection.
  * Uses the cell's own brightness distribution.
  * @param {ImageData} imageData
@@ -389,12 +427,19 @@ function classifyCell(ctx, x, y, w, h, boardAvgBrightness) {
 
   const { brightness, stdDev, satRatio, redRatio, innerData } = stats;
 
-  // Flag detection: significant amount of red pixels
-  if (redRatio > 0.03) {
+  // Very dark cells are UI elements (LCD mine counter, black borders) — skip them.
+  if (brightness < 60) {
+    return { type: 'empty', value: 0 };
+  }
+
+  // Flag detection: red pixels on a GRAY background.
+  // Require brightness > 100 to exclude red LCD digits on black backgrounds.
+  if (redRatio > 0.04 && brightness > 100) {
     return { type: 'flag', value: null };
   }
 
-  // Try classic color-based digit recognition first (for colorful minesweeper styles)
+  // Classic color-based digit recognition (works reliably for standard minesweeper).
+  // Numbers have distinctly coloured pixels: blue=1, green=2, red=3, navy=4, etc.
   if (satRatio > 0.08) {
     const digit = matchClassicDigitColor(innerData);
     if (digit) {
@@ -402,46 +447,31 @@ function classifyCell(ctx, x, y, w, h, boardAvgBrightness) {
     }
   }
 
-  // For modern styles: binarize and check for number glyphs
+  // ── Bevel detection: the key to distinguishing unrevealed from empty ──────
+  //
+  // Unrevealed cells have a raised 3D button effect:
+  //   top-left edges are bright highlight (~255), bottom-right are dark shadow (~128).
+  // Empty revealed cells are flat — no bevel asymmetry.
+  //
+  // This check replaces the old (wrong) stdDev < 12 → unrevealed heuristic.
+  if (hasBevel(ctx, x, y, w, h)) {
+    return { type: 'unrevealed', value: null };
+  }
+
+  // ── Revealed cell — check for a number (modern/non-coloured styles) ───────
   const threshold = adaptiveThreshold(innerData);
   const { binary, brightCount, total, width: bw, height: bh } = binarizeCell(innerData, threshold);
   const brightRatio = brightCount / total;
 
-  // Determine if this cell has visible text/number by checking contrast
-  // A cell with a number will have a bimodal brightness distribution (background + text)
-  // An empty revealed cell or unrevealed cell will be more uniform
-
-  // Check if the cell has a clearly visible glyph
-  // For dark backgrounds with light numbers: bright pixels are the number
-  // For light backgrounds with dark numbers: dark pixels are the number
-  // Use stdDev as a proxy - numbered cells have higher stdDev than plain cells
-  if (stdDev < 12) {
-    // Very uniform cell - either empty revealed or unrevealed
-    // Distinguish by comparing to board average
-    // Unrevealed cells in most games have a distinct appearance (often darker or have a pattern)
-    // For now, use brightness relative to board average
-    return { type: 'unrevealed', value: null };
-  }
-
-  // Check if there's enough "ink" to be a number
-  // Numbers typically occupy 10-50% of the cell's center area
-  if (brightRatio > 0.02 && brightRatio < 0.60 && stdDev > 15) {
-    // Try to recognize the digit
+  if (stdDev > 14 && brightRatio > 0.02 && brightRatio < 0.65) {
     const digit = recognizeDigitFromBinary(binary, bw, bh);
     if (digit >= 1 && digit <= 8) {
       return { type: 'number', value: digit };
     }
   }
 
-  // If we couldn't find a number but the cell has some features, check if it might be
-  // a revealed empty cell (low brightness variation, flat look) or unrevealed
-  if (stdDev < 25 && brightRatio < 0.05) {
-    // Likely empty revealed cell (flat, no number)
-    return { type: 'empty', value: 0 };
-  }
-
-  // Default: unrevealed
-  return { type: 'unrevealed', value: null };
+  // Flat, no number → empty revealed cell.
+  return { type: 'empty', value: 0 };
 }
 
 // ─── Board Analysis ──────────────────────────────────────────────────────────
